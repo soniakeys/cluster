@@ -1,3 +1,7 @@
+// Copyright 2012 Sonia Keys
+// License MIT: http://www.opensource.org/licenses/MIT
+
+// K-means and K-means++ clustering for n-dimensional data
 package kmpp
 
 import (
@@ -5,25 +9,48 @@ import (
 	"math/rand"
 )
 
-type R2 struct {
-	X, Y float64
+// n-dimensional point
+type Point []float64
+
+// Sqd, square of distance between Points
+func (p1 Point) Sqd(p2 Point) (ssq float64) {
+	for i, x1 := range p1 {
+		d := x1 - p2[i]
+		ssq += d * d
+	}
+	return
 }
 
-type R2c struct {
-	R2
+// Add, element-wise += on a Point.
+func (p1 Point) Add(p2 Point) {
+	for i, x2 := range p2 {
+		p1[i] += x2
+	}
+}
+
+// Mul, scalar multipy on a Point.
+func (p Point) Mul(s float64) {
+	for i := range p {
+		p[i] *= s
+	}
+}
+
+// CPoint, clustered point, a point associated with a cluster.
+type CPoint struct {
 	C int // cluster number
+	Point
 }
 
 // Kmpp, K-means++.
-func Kmpp(k int, data []R2c) {
+func Kmpp(k int, data []CPoint) {
 	KMeans(data, kmppSeeds(k, data))
 }
 
 // kmppSeeds is the ++ part.
 // It generates the initial means for the k-means algorithm.
-func kmppSeeds(k int, data []R2c) []R2 {
-	s := make([]R2, k)
-	s[0] = data[rand.Intn(len(data))].R2
+func kmppSeeds(k int, data []CPoint) []Point {
+	s := make([]Point, k)
+	s[0] = data[rand.Intn(len(data))].Point
 	d2 := make([]float64, len(data))
 	for i := 1; i < k; i++ {
 		var sum float64
@@ -37,7 +64,7 @@ func kmppSeeds(k int, data []R2c) []R2 {
 		for sum = d2[0]; sum < target; sum += d2[j] {
 			j++
 		}
-		s[i] = data[j].R2
+		s[i] = data[j].Point
 	}
 	return s
 }
@@ -45,42 +72,39 @@ func kmppSeeds(k int, data []R2c) []R2 {
 // nearest finds the nearest mean to a given point.
 // return values are the index of the nearest mean, and the distance from
 // the point to the mean.
-func nearest(p R2c, mean []R2) (int, float64) {
+func nearest(p CPoint, mean []Point) (int, float64) {
 	iMin := 0
-	dMin := math.Hypot(p.X-mean[0].X, p.Y-mean[0].Y)
+	sqdMin := p.Sqd(mean[0])
 	for i := 1; i < len(mean); i++ {
-		d := math.Hypot(p.X-mean[i].X, p.Y-mean[i].Y)
-		if d < dMin {
-			dMin = d
+		sqd := p.Sqd(mean[i])
+		if sqd < sqdMin {
+			sqdMin = sqd
 			iMin = i
 		}
 	}
-	return iMin, dMin
+	return iMin, math.Sqrt(sqdMin)
 }
 
 // KMeans, Lloyd's algorithm.
-func KMeans(data []R2c, mean []R2) {
+func KMeans(data []CPoint, mean []Point) {
 	// initial assignment
 	for i, p := range data {
 		cMin, _ := nearest(p, mean)
 		data[i].C = cMin
 	}
 	mLen := make([]int, len(mean))
-	for {
+	for n := len(data[0].Point); ; {
 		// update means
 		for i := range mean {
-			mean[i] = R2{}
+			mean[i] = make(Point, n)
 			mLen[i] = 0
 		}
 		for _, p := range data {
-			mean[p.C].X += p.X
-			mean[p.C].Y += p.Y
+			mean[p.C].Add(p.Point)
 			mLen[p.C]++
 		}
 		for i := range mean {
-			inv := 1 / float64(mLen[i])
-			mean[i].X *= inv
-			mean[i].Y *= inv
+			mean[i].Mul(1 / float64(mLen[i]))
 		}
 		// make new assignments, count changes
 		var changes int
