@@ -50,7 +50,7 @@ func Kmpp(k int, data []CPoint) {
 // It generates the initial means for the k-means algorithm.
 func kmppSeeds(k int, data []CPoint) []Point {
 	s := make([]Point, k)
-	s[0] = data[rand.Intn(len(data))].Point
+	s[0] = append(Point{}, data[rand.Intn(len(data))].Point...)
 	d2 := make([]float64, len(data))
 	for i := 1; i < k; i++ {
 		var sum float64
@@ -64,7 +64,7 @@ func kmppSeeds(k int, data []CPoint) []Point {
 		for sum = d2[0]; sum < target; sum += d2[j] {
 			j++
 		}
-		s[i] = data[j].Point
+		s[i] = append(Point{}, data[j].Point...)
 	}
 	return s
 }
