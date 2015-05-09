@@ -1,10 +1,15 @@
-package kmpp
+// Author Sonia Keys 2012
+// Public domain.
+
+package kmpp_test
 
 import (
 	"math"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/soniakeys/kmpp"
 )
 
 // Method:  Generate a bunch of random points normally distributed around
@@ -14,47 +19,28 @@ import (
 // Then one of d1, d2 should be near zero and one of them should be near zero
 // and the other should be near 2*distance(o1, o2).
 func TestKmpp(t *testing.T) {
-	o1 := Point{100, 140, 80}
-	o2 := Point{200, 160, 120}
-	o := []Point{o1, o2}
+	o1 := kmpp.Point{100, 140, 80}
+	o2 := kmpp.Point{200, 160, 120}
+	o := []kmpp.Point{o1, o2}
 
 	// dimensionality of points, = 3.
 	dim := len(o1)
 	// the k of k-means, the number of clusters to partition into, = 2.
 	k := len(o)
-
-	const nPointsPerCluster = 1000
 	const stdv = 80.
+	const nPointsPerCluster = 1000
 
 	rand.Seed(time.Now().UnixNano())
-	data := make([]CPoint, k*nPointsPerCluster)
+	data := make([]kmpp.Point, k*nPointsPerCluster)
 	p := 0
 	for n := range data {
-		data[n].Point = make(Point, dim)
+		data[n] = make(kmpp.Point, dim)
 		for i, x := range o[p] {
-			data[n].Point[i] = rand.NormFloat64()*stdv + x
+			data[n][i] = rand.NormFloat64()*stdv + x
 		}
-		data[n].C = p
 		p = 1 - p
 	}
-
-	Kmpp(k, data)
-
-	// clustering done, compute statistics.  first accumulate by cluster:
-	cCent := make([]Point, k)
-	for i := range cCent {
-		cCent[i] = make(Point, dim)
-	}
-	cLen := make([]int, k)
-	for _, p := range data {
-		cLen[p.C]++             // count by cluster
-		cCent[p.C].Add(p.Point) // sum by cluster
-	}
-	inv := make([]float64, k)
-	for i, iLen := range cLen {
-		inv[i] = 1 / float64(iLen) // compute 1/count by cluster
-		cCent[i].Mul(inv[i])       // compute mean by cluster
-	}
+	cCent, _, cLen := kmpp.Kmpp(data, k)
 	c1 := cCent[0]
 	c2 := cCent[1]
 
@@ -63,15 +49,10 @@ func TestKmpp(t *testing.T) {
 	t.Logf("%5.1f", o1)
 	t.Logf("%5.1f", o2)
 
-	t.Log("Cluster centroids, mean distance from centroid,")
-	t.Log("number of points in cluster:")
-	t.Logf(" %*s  distance  points", dim*6, "centroid")
-	dist := make([]float64, k)
-	for _, p := range data {
-		dist[p.C] += math.Sqrt(p.Sqd(cCent[p.C]))
-	}
-	t.Logf("%5.1f  %8.1f  %6d\n", c1, dist[0]*inv[0], cLen[0])
-	t.Logf("%5.1f  %8.1f  %6d\n", c2, dist[1]*inv[1], cLen[1])
+	t.Log("Cluster centroids, number of points in cluster:")
+	t.Logf(" %*s  points", dim*6, "centroid")
+	t.Logf("%5.1f  %6d\n", c1, cLen[0])
+	t.Logf("%5.1f  %6d\n", c2, cLen[1])
 
 	// compute d1, d2 for test
 	d1 := math.Sqrt(o1.Sqd(c1)) + math.Sqrt(o2.Sqd(c2))
