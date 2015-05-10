@@ -2,7 +2,7 @@
 // Public domain.
 
 // K-means and K-means++ clustering for n-dimensional data
-package kmpp
+package cluster
 
 import (
 	"math/rand"
@@ -61,15 +61,22 @@ func KMeans(points []Point, centers []Point) (cNums, cCounts []int) {
 // On return, centers will contain mean values of the discovered clusters,
 // cNums will contain cluster numbers for points, cCounts will contain the
 // count of points in each cluster.
+//
+// This is a wrapper for calling KMeans with the KmppSeeds initializer.
 func Kmpp(points []Point, k int) (centers []Point, cNums, cCounts []int) {
-	centers = kmppSeeds(points, k)
+	centers = KmppSeeds(points, k)
 	cNums, cCounts = KMeans(points, centers)
 	return
 }
 
-// kmppSeeds is the ++ part.
-// It generates the initial means for the k-means algorithm.
-func kmppSeeds(points []Point, k int) []Point {
+// KmppSeeds generates seed centers for KMeans
+//
+// KmppSeeds is the ++ part.  It picks the first seed randomly from points,
+// then picks successive seeds randomly with probability proportional to the
+// squared distance to the nearest seed.
+//
+// Randomness comes from math/rand default generator and is not seeded here.
+func KmppSeeds(points []Point, k int) []Point {
 	seeds := make([]Point, k) // return value
 	// unselected points, initially all points
 	up := make([]int, len(points))

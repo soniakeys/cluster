@@ -1,7 +1,7 @@
 // Author Sonia Keys 2012
 // Public domain.
 
-package kmpp
+package cluster
 
 // Point is an n-dimensional point in Euclidean space.
 type Point []float64

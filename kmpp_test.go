@@ -1,7 +1,7 @@
 // Author Sonia Keys 2012
 // Public domain.
 
-package kmpp_test
+package cluster_test
 
 import (
 	"math"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soniakeys/kmpp"
+	"github.com/soniakeys/cluster"
 )
 
 // Method:  Generate a bunch of random points normally distributed around
@@ -19,9 +19,9 @@ import (
 // Then one of d1, d2 should be near zero and one of them should be near zero
 // and the other should be near 2*distance(o1, o2).
 func TestKmpp(t *testing.T) {
-	o1 := kmpp.Point{100, 140, 80}
-	o2 := kmpp.Point{200, 160, 120}
-	o := []kmpp.Point{o1, o2}
+	o1 := cluster.Point{100, 140, 80}
+	o2 := cluster.Point{200, 160, 120}
+	o := []cluster.Point{o1, o2}
 
 	// dimensionality of points, = 3.
 	dim := len(o1)
@@ -31,16 +31,16 @@ func TestKmpp(t *testing.T) {
 	const nPointsPerCluster = 1000
 
 	rand.Seed(time.Now().UnixNano())
-	data := make([]kmpp.Point, k*nPointsPerCluster)
+	data := make([]cluster.Point, k*nPointsPerCluster)
 	p := 0
 	for n := range data {
-		data[n] = make(kmpp.Point, dim)
+		data[n] = make(cluster.Point, dim)
 		for i, x := range o[p] {
 			data[n][i] = rand.NormFloat64()*stdv + x
 		}
 		p = 1 - p
 	}
-	cCent, _, cLen := kmpp.Kmpp(data, k)
+	cCent, _, cLen := cluster.Kmpp(data, k)
 	c1 := cCent[0]
 	c2 := cCent[1]
 
