@@ -4,7 +4,10 @@
 // K-means and K-means++ clustering for n-dimensional data
 package kmpp
 
-import "math/rand"
+import (
+	"math/rand"
+	"sort"
+)
 
 // KMeans, Lloyd's algorithm.
 //
@@ -20,7 +23,7 @@ func KMeans(points []Point, centers []Point) (cNums, cCounts []int) {
 	cNums = make([]int, len(points))
 	// initial assignment
 	for i, p := range points {
-		cNums[i], _ = p.Nearest(centers)
+		cNums[i], _ = p.NearestSqd(centers)
 	}
 	cCounts = make([]int, len(centers)) // size of each cluster
 	for {
@@ -40,7 +43,7 @@ func KMeans(points []Point, centers []Point) (cNums, cCounts []int) {
 		// make new assignments, count changes
 		changes := false
 		for i, p := range points {
-			if cx, _ := p.Nearest(centers); cx != cNums[i] {
+			if cx, _ := p.NearestSqd(centers); cx != cNums[i] {
 				changes = true
 				cNums[i] = cx
 			}
@@ -67,22 +70,48 @@ func Kmpp(points []Point, k int) (centers []Point, cNums, cCounts []int) {
 // kmppSeeds is the ++ part.
 // It generates the initial means for the k-means algorithm.
 func kmppSeeds(points []Point, k int) []Point {
-	s := make([]Point, k)
-	s[0] = append(Point{}, points[rand.Intn(len(points))]...)
-	d2 := make([]float64, len(points))
-	for i := 1; i < k; i++ {
-		var sum float64
-		for j, p := range points {
-			_, dMin := p.Nearest(s[:i])
-			d2[j] = dMin * dMin
-			sum += d2[j]
-		}
-		target := rand.Float64() * sum
-		j := 0
-		for sum = d2[0]; sum < target; sum += d2[j] {
-			j++
-		}
-		s[i] = append(Point{}, points[j]...)
+	seeds := make([]Point, k) // return value
+	// unselected points, initially all points
+	up := make([]int, len(points))
+	for i := range up {
+		up[i] = i
 	}
-	return s
+	// seed 0, selected randomly from all points
+	s := rand.Intn(len(points))
+	p := points[s]
+	// d2 holds minimum sqd distances from points to any seed so far.
+	d2 := make([]float64, len(points))
+	for i, p2 := range points { // initialize here with sqd from seed 0
+		d2[i] = p.Sqd(p2)
+	}
+	// upSum holds cumulative d2 distances for points in up.
+	upSum := make([]float64, len(up))
+
+	for sx := 0; ; {
+		seeds[sx] = append(Point{}, points[s]...) // duplicate selected point
+		sx++
+		if sx == k {
+			return seeds
+		}
+		// update d2
+		if sx > 1 { // (first seed comes with d2 already done)
+			for i, p2 := range points {
+				if d := p.Sqd(p2); d < d2[i] {
+					d2[i] = d
+				}
+			}
+		}
+		// remove selected point from up
+		upLast := len(up) - 1
+		up[s] = up[upLast]
+		up = up[:upLast]
+		// compute upSum
+		sum := 0.
+		for i, px := range up {
+			sum += d2[px]
+			upSum[i] = sum
+		}
+		// select next seed from up with probability proportional to d2
+		s = up[sort.SearchFloat64s(upSum, rand.Float64()*sum)]
+	}
 }

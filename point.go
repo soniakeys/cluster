@@ -3,8 +3,6 @@
 
 package kmpp
 
-import "math"
-
 // Point is an n-dimensional point in Euclidean space.
 type Point []float64
 
@@ -12,15 +10,6 @@ func (p Point) Clear() {
 	for i := range p {
 		p[i] = 0
 	}
-}
-
-// Sqd, square of Euclidean distance between Points.
-func (p1 Point) Sqd(p2 Point) (ssq float64) {
-	for i, x1 := range p1 {
-		d := x1 - p2[i]
-		ssq += d * d
-	}
-	return
 }
 
 // Add, element-wise += on a Point.
@@ -37,11 +26,29 @@ func (p Point) Mul(s float64) {
 	}
 }
 
-// Nearest finds the point nearest the receiver out of a list of points.
+// SetMean, set p to the mean of pts.
+func (p Point) SetMean(pts []Point) {
+	copy(p, pts[0])
+	for _, p2 := range pts {
+		p.Add(p2)
+	}
+	p.Mul(1 / float64(len(pts)))
+}
+
+// Sqd, square of Euclidean distance between Points.
+func (p1 Point) Sqd(p2 Point) (ssq float64) {
+	for i, x1 := range p1 {
+		d := x1 - p2[i]
+		ssq += d * d
+	}
+	return
+}
+
+// NearestSqd finds the point nearest the receiver out of a list of points.
 //
 // Euclidean distance by Sqd.  Return values are the index of the nearest
-// point and the distance from the receiver to the nearest point.
-func (p Point) Nearest(pts []Point) (int, float64) {
+// point and the square of the distance from the receiver to the nearest point.
+func (p Point) NearestSqd(pts []Point) (int, float64) {
 	iMin := 0
 	sqdMin := p.Sqd(pts[0])
 	for i, p2 := range pts[1:] {
@@ -50,5 +57,5 @@ func (p Point) Nearest(pts []Point) (int, float64) {
 			iMin = i + 1
 		}
 	}
-	return iMin, math.Sqrt(sqdMin)
+	return iMin, sqdMin
 }
