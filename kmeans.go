@@ -54,7 +54,7 @@ func KMeans(points []Point, centers []Point) (cNums, cCounts []int) {
 	}
 }
 
-// Kmpp, K-means++ clustering.
+// KMPP, K-means++ clustering.
 //
 // Clusters points into k clusters.
 //
@@ -62,21 +62,23 @@ func KMeans(points []Point, centers []Point) (cNums, cCounts []int) {
 // cNums will contain cluster numbers for points, cCounts will contain the
 // count of points in each cluster.
 //
-// This is a wrapper for calling KMeans with the KmppSeeds initializer.
-func Kmpp(points []Point, k int) (centers []Point, cNums, cCounts []int) {
-	centers = KmppSeeds(points, k)
+// This is a wrapper for calling KMeans with the KMPPSeeds initializer.
+func KMPP(points []Point, k int) (centers []Point, cNums, cCounts []int) {
+	centers = KMPPSeeds(points, k)
 	cNums, cCounts = KMeans(points, centers)
 	return
 }
 
-// KmppSeeds generates seed centers for KMeans
+// KMPPSeeds generates seed centers for KMeans using the KMeans++ initializer.
 //
-// KmppSeeds is the ++ part.  It picks the first seed randomly from points,
+// KMPPSeeds is the ++ part.  It picks the first seed randomly from points,
 // then picks successive seeds randomly with probability proportional to the
 // squared distance to the nearest seed.
 //
 // Randomness comes from math/rand default generator and is not seeded here.
-func KmppSeeds(points []Point, k int) []Point {
+//
+// Returned seeds are copies of the selected points.
+func KMPPSeeds(points []Point, k int) []Point {
 	seeds := make([]Point, k) // return value
 	// unselected points, initially all points
 	up := make([]int, len(points))
@@ -121,4 +123,32 @@ func KmppSeeds(points []Point, k int) []Point {
 		// select next seed from up with probability proportional to d2
 		s = up[sort.SearchFloat64s(upSum, rand.Float64()*sum)]
 	}
+}
+
+// KMRandomSeeds generates seed centers for KMeans randomly.
+//
+// Randomness comes from math/rand default generator and is not seeded here.
+//
+// Returned seeds are copies of the selected points.
+func KMRandomSeeds(points []Point, k int) []Point {
+	seeds := make([]Point, k) // return value
+	for i, s := range rand.Perm(len(points))[:k] {
+		seeds[i] = append(Point{}, points[s]...)
+	}
+	return seeds
+}
+
+// KMRandom, K-means clustering with random initialization.
+//
+// Clusters points into k clusters.
+//
+// On return, centers will contain mean values of the discovered clusters,
+// cNums will contain cluster numbers for points, cCounts will contain the
+// count of points in each cluster.
+//
+// This is a wrapper for calling KMeans with the KMRandomSeeds initializer.
+func KMRandom(points []Point, k int) (centers []Point, cNums, cCounts []int) {
+	centers = KMRandomSeeds(points, k)
+	cNums, cCounts = KMeans(points, centers)
+	return
 }

@@ -13,12 +13,12 @@ import (
 )
 
 // Method:  Generate a bunch of random points normally distributed around
-// each of two points, o1 and o2.  Have Kmpp find two clusters, c1 and c2.
+// each of two points, o1 and o2.  Have KMPP find two clusters, c1 and c2.
 // compute d1 = distance(o1, c1) + distance(o2, c2)
 // compute d2 = distance(o1, c2) + distance(o2, c1)
 // Then one of d1, d2 should be near zero and one of them should be near zero
 // and the other should be near 2*distance(o1, o2).
-func TestKmpp(t *testing.T) {
+func TestKMPP(t *testing.T) {
 	o1 := cluster.Point{100, 140, 80}
 	o2 := cluster.Point{200, 160, 120}
 	o := []cluster.Point{o1, o2}
@@ -40,7 +40,7 @@ func TestKmpp(t *testing.T) {
 		}
 		p = 1 - p
 	}
-	cCent, _, cLen := cluster.Kmpp(data, k)
+	cCent, _, cLen := cluster.KMPP(data, k)
 	c1 := cCent[0]
 	c2 := cCent[1]
 
