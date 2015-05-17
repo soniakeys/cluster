@@ -1,4 +1,4 @@
-// Author Sonia Keys 2012
+// Author Sonia Keys 2015
 // Public domain.
 
 package cluster
@@ -8,6 +8,7 @@ import "math"
 // Point is an n-dimensional point in Euclidean space.
 type Point []float64
 
+// Clear sets all coordinates of p to 0.
 func (p Point) Clear() {
 	for i := range p {
 		p[i] = 0
@@ -62,6 +63,9 @@ func (p Point) NearestSqd(pts []Point) (int, float64) {
 	return iMin, sqdMin
 }
 
+// Pearson returns Pearson's correlation coefficient for x and y.
+//
+// x and y must be the same length.
 func (x Point) Pearson(y Point) float64 {
 	var μx, μy float64
 	for i, xi := range x {
