@@ -17,6 +17,22 @@ import (
 // See DistanceMatrix.Valid for typical restrictions.
 type DistanceMatrix [][]float64
 
+// NewEuclideanDist constructs an n×n distance matrix where n is len(exp)
+// based on Euclidean distance between points.
+func NewEuclideanDist(exp []Point) DistanceMatrix {
+	dist := make(DistanceMatrix, len(exp))
+	for i := range dist {
+		di := make([]float64, len(exp))
+		for j := 0; j < i; j++ {
+			d := math.Sqrt(exp[i].Sqd(exp[j]))
+			di[j] = d
+			dist[j][i] = d
+		}
+		dist[i] = di
+	}
+	return dist
+}
+
 // Valid validates a DistanceMarix as Euclidean.
 //
 // Conditions are:
@@ -322,11 +338,13 @@ func RandomAdditiveMatrix(n int) DistanceMatrix {
 
 // []Ultrametric is a return type from DistanceMatrix.Ultrametric.
 type Ultrametric struct {
-	Parent  int     // index of parent in parent list
+	Parent  int     // parent node number, index of parent in parent list
 	Weight  float64 // edge weight from parent (the evolutionary distance)
 	Age     float64 // age (height above leaves)
 	NLeaves int     // number of leaves at or below this node
 }
+
+type UList []Ultrametric
 
 // DAVG, DMIN constants for argument to Ultrametric.
 const (
@@ -334,14 +352,15 @@ const (
 	DMIN        // single linkage (minimum) cluster distance metric
 )
 
-// Ultrametric constructs a rooted ultrametric tree from DistanceMatrix dm.
+// Ultrametric constructs a rooted ultrametric binary tree from
+// DistanceMatrix dm.
 //
 // The tree result is returned as a parent list, A list of nodes where each
 // points to its parent.  Leaves of the tree are represented by elements
-// 0:len(dm).  The root is the last element in the list.  Having no logical
-// parent, the root will have parent = -1 and Weight = NaN.
-// It will also have NLeaves = len(dm).
-func (dm DistanceMatrix) Ultrametric(cdf int) []Ultrametric {
+// 0:len(dm).  Age only increases in the list.  The root is the last element
+// in the list.  Having no logical parent, the root will have parent = -1 and
+// Weight = NaN.  It will also have NLeaves = len(dm).
+func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 	pl := make([]Ultrametric, len(dm)) // the parent-list
 	for i := range pl {
 		pl[i] = Ultrametric{-1, math.NaN(), 0, 1} // initial isolated nodes
@@ -444,6 +463,35 @@ func (dm DistanceMatrix) Ultrametric(cdf int) []Ultrametric {
 		cx = cx[:len(dm)]
 	}
 	return pl
+}
+
+// Cut partitions leaf nodes of an ultrametric tree into k clusters.
+//
+// A UList of length l represents a tree with nLeaves = (l+1)/2 leaves.
+// Cut returns an k-partition of 0:nLeaves.  Each partition corresponds to
+// a subtree of u.  Because of the increasing age property of a UList,
+// the parents of the roots of the k subtrees will be the last k-1
+// elements of the list, that is the parents will be >= len(u)-(k-1).
+func (u UList) Cut(k int) (clusters [][]int) {
+	nLeaves := (len(u) + 1) / 2
+	if k > nLeaves {
+		k = nLeaves
+	}
+	clusters = make([][]int, 0, k) // return value has k clusters
+	cut := len(u) - (k - 1)
+	c := make([][]int, cut) // working data uses more though
+	for l := range c[:nLeaves] {
+		c[l] = []int{l}
+	}
+	for i, ui := range u[:cut] {
+		uiP := ui.Parent
+		if uiP >= cut {
+			clusters = append(clusters, c[i])
+		} else {
+			c[uiP] = append(c[uiP], c[i]...)
+		}
+	}
+	return
 }
 
 // NeighborJoin constructs an unrooted tree from a distance matrix using the

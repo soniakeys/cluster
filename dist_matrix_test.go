@@ -130,3 +130,40 @@ func ExampleDistanceMatrix_NeighborJoin() {
 	// 5   0    8.000
 	// 5   4    2.000
 }
+
+func ExampleUList_Cut() {
+	exp := []cluster.Point{
+		{10, 8, 10},
+		{10, 0, 9},
+		{4, 8.5, 3},
+		{9.5, .5, 8.5},
+		{4.5, 8.5, 2.5},
+		{10.5, 9, 12},
+		{5, 8.5, 11},
+		{3.7, 8.7, 2},
+		{9.7, 2, 9},
+		{10.2, 1, 9.2},
+	}
+	dm := cluster.NewEuclideanDist(exp)
+	u := dm.Ultrametric(cluster.DAVG)
+	for _, c := range u.Cut(4) {
+		for _, x := range c {
+			fmt.Printf("%d: %g\n", x, exp[x])
+		}
+		fmt.Println()
+	}
+	// Output:
+	// 6: [5 8.5 11]
+	//
+	// 7: [3.7 8.7 2]
+	// 2: [4 8.5 3]
+	// 4: [4.5 8.5 2.5]
+	//
+	// 8: [9.7 2 9]
+	// 9: [10.2 1 9.2]
+	// 1: [10 0 9]
+	// 3: [9.5 0.5 8.5]
+	//
+	// 0: [10 8 10]
+	// 5: [10.5 9 12]
+}
