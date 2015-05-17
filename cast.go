@@ -97,18 +97,41 @@ func (sim SimilarityMatrix) cSim(i int, c map[int]bool) float64 {
 	return s / float64(len(c))
 }
 
-// NewPearsonSim constructs an n×n similarity matrix where n is len(exp).
+// NewPearsonSim constructs an n×n similarity matrix where n is len(exp)
+// based on the Pearson correlation coefficient.  Values are 1+Pearson,
+// so most similar points have similarity 2.0, least similar points have
+// similarity 0.0.
 func NewPearsonSim(exp []Point) SimilarityMatrix {
 	sim := make(SimilarityMatrix, len(exp))
 	for i := range sim {
 		si := make([]float64, len(exp))
 		for j := 0; j < i; j++ {
-			c := exp[i].Pearson(exp[j])
+			c := 1 + exp[i].Pearson(exp[j])
 			si[j] = c
 			sim[j][i] = c
 		}
-		si[i] = 1
+		si[i] = 2 // diagonal
 		sim[i] = si
 	}
 	return sim
+}
+
+// NewPearsonDist constructs an n×n distance matrix where n is len(exp).
+// based on the Pearson correlation coefficient.  Values are 1-Pearson,
+// so most distant points have distance 2.0, least distant points have
+// distance 0.0.
+func NewPearsonDist(exp []Point) DistanceMatrix {
+	dist := make(DistanceMatrix, len(exp))
+	for i := range dist {
+		di := make([]float64, len(exp))
+		for j := 0; j < i; j++ {
+			// 1- is the difference from NewPearsonSim
+			d := 1 - exp[i].Pearson(exp[j])
+			di[j] = d
+			dist[j][i] = d
+		}
+		// diagonal left 0
+		dist[i] = di
+	}
+	return dist
 }
