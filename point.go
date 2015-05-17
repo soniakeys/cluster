@@ -3,6 +3,8 @@
 
 package cluster
 
+import "math"
+
 // Point is an n-dimensional point in Euclidean space.
 type Point []float64
 
@@ -58,4 +60,23 @@ func (p Point) NearestSqd(pts []Point) (int, float64) {
 		}
 	}
 	return iMin, sqdMin
+}
+
+func (x Point) Pearson(y Point) float64 {
+	var μx, μy float64
+	for i, xi := range x {
+		μx += xi
+		μy += y[i]
+	}
+	μx /= float64(len(x))
+	μy /= float64(len(x))
+	var sn, sx, sy float64
+	for i, xi := range x {
+		dx := xi - μx
+		dy := y[i] - μy
+		sn += dx * dy
+		sx += dx * dx
+		sy += dy * dy
+	}
+	return sn / math.Sqrt(sx*sy)
 }

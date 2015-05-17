@@ -1,8 +1,9 @@
 // Author Sonia Keys 2012
 // Public domain.
 
-// K-means and K-means++ clustering for n-dimensional data
 package cluster
+
+// K-means and K-means++ clustering for n-dimensional data
 
 import (
 	"math/rand"
@@ -125,11 +126,11 @@ func KMSeedPP(points []Point, k int) []Point {
 	}
 }
 
-// KMRandomSeeds generates seed centers for KMeans randomly.
+// KMSeedRandom selects and copies k distinct points from the points argument.
 //
 // Randomness comes from math/rand default generator and is not seeded here.
 //
-// Returned seeds are copies of the selected points.
+// The function panics if there are not k distinct points.
 func KMSeedRandom(points []Point, k int) []Point {
 	seeds := make([]Point, k)
 	for i, s := range rand.Perm(len(points))[:k] {
@@ -138,6 +139,9 @@ func KMSeedRandom(points []Point, k int) []Point {
 	return seeds
 }
 
+// KMSeedFirst simply copies the first k points.
+//
+// The function panics if len(points) < k.
 func KMSeedFirst(points []Point, k int) []Point {
 	seeds := make([]Point, k)
 	for i, p := range points[:k] {

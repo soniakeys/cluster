@@ -1,3 +1,5 @@
+// Public domain.
+
 package cluster
 
 import (
@@ -10,7 +12,7 @@ import (
 	"github.com/soniakeys/graph"
 )
 
-// DistanceMatrix holds a distance matrix for phylogenic analyses.
+// DistanceMatrix holds a distance matrix for cluster analyses.
 //
 // See DistanceMatrix.Valid for typical restrictions.
 type DistanceMatrix [][]float64
@@ -165,34 +167,27 @@ func (d DistanceMatrix) limbWeightSubMatrix(j int) (wt float64, i, k int) {
 	return wtMin2 / 2, iMin2, k
 }
 
-// A Half is an element in an adjacency list, a graph representation.
-type Half struct {
-	To     int
-	Weight float64
-}
-
-// AdditiveTree constructs a phylogenic tree from an additive distance matrix.
+// AdditiveTree constructs an unrooted tree from an additive distance matrix.
 //
 // DistanceMatrix d must be additive.  Use provably additive matrices or
 // use DistanceMatrix.Additive() to verify the additive property.
 //
 // Result is an unrooted tree, not necessarily binary, as an undirected graph.
-// The structure is an adjacency list of Half structs.  The first len(d)
-// nodes are the leaves represented by the distance matrix.  Internal nodes
-// follow.
+// The first len(d) nodes are the leaves represented by the distance matrix.
+// Internal nodes follow.
 //
 // Time complexity is O(n^2) in the number of leaves.
-func (d DistanceMatrix) AdditiveTree() [][]Half {
+func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []float64) {
 	// interpretation of the presented recursive algorithm.
 	// good things to try:  1: construct result as a parent list rather than
 	// a child tree.  2: drop the recursion.  3. make tree always binary.
-	t := make([][]Half, len(d)) // allocate leaves
+	t = make(graph.LabeledAdjacencyList, len(d)) // allocate leaves
 	var ap func(int)
 	ap = func(n int) {
 		if n == 1 {
-			wt := d[0][1]
-			t[0] = []Half{{1, wt}}
-			t[1] = []Half{{0, wt}}
+			edgeWts = []float64{d[0][1]}
+			t[0] = []graph.Half{{1, 0}}
+			t[1] = []graph.Half{{0, 0}}
 			return
 		}
 		nLen, i, k := d.limbWeightSubMatrix(n)
@@ -219,21 +214,32 @@ func (d DistanceMatrix) AdditiveTree() [][]Half {
 					continue
 				case x == 0: // p is connection node
 					return p
-				case x < to.Weight: // new node at distance x from to.to
-					v := len(t)
-					y := to.Weight - x
-					t[n][tx] = Half{v, y}
+				case x < edgeWts[to.Label]: // new node at dist x from to.To
+					// plan is to recycle the existing half edges between
+					// n and to.To to go to new node v.  The edge(n, v)
+					// gets to keep the recycled edge label with weight
+					// reduced by x.  The edge(to.To, v) gets a new edge label
+					// with weight x.
+
+					v := len(t)            // new node
+					t[n][tx].To = v        // redirect half
+					edgeWts[to.Label] -= x // reduce wt
+
+					y := len(edgeWts) // new label for edge(to.To, v)
+					edgeWts = append(edgeWts, x)
+					// now find reciprocal half from to.To back to n
 					for fx, from := range t[to.To] {
-						if from.To == n {
-							t[to.To][fx] = Half{v, x}
+						if from.To == n { // here it is
+							// recycle it to go to v now.
+							t[to.To][fx] = graph.Half{v, y}
 							break
 						}
 					}
-					t = append(t, []Half{{n, y}, {to.To, x}})
+					t = append(t, []graph.Half{{n, to.Label}, {to.To, y}})
 					x = 0
 					return v
 				default: // continue back out
-					x -= to.Weight
+					x -= edgeWts[to.Label]
 					return n
 				}
 			}
@@ -241,84 +247,12 @@ func (d DistanceMatrix) AdditiveTree() [][]Half {
 		}
 		vis = big.Int{}
 		v := f(k)
-		t[n] = []Half{{v, nLen}}
-		t[v] = append(t[v], Half{n, nLen})
+		y := len(edgeWts)
+		edgeWts = append(edgeWts, nLen)
+		t[n] = []graph.Half{{v, y}}
+		t[v] = append(t[v], graph.Half{n, y})
 	}
 	ap(len(d) - 1)
-	return t
-}
-
-// A Half is an element in a parent list, an efficient representation for trees.
-type FromHalf struct {
-	From   int
-	Weight float64
-}
-
-// Random binary tree, returned as a parent list.
-//
-// The binary tree for n leaves has n-2 internal nodes but the root node
-// is not stored so len(parentList) == nLeaves+nLeaves-3.
-// The leaves correspond to nodes 0:nLeaves and the unrepresented root
-// corresponds to len(parentList).
-//
-// Example code:
-//   n := 5
-//   pl := bio.RandomBinaryTree(n)
-//   fmt.Println(n+n-2, "nodes,")
-//   fmt.Println(len(pl), "in parent list:")
-//   for i, fh := range pl {
-//       fmt.Printf("%d: parent %d weight %g\n", i, fh.From, fh.Weight)
-//   }
-//
-// Output:
-//
-//   8 nodes,
-//   7 in parent list:
-//   0: parent 7 weight 62
-//   1: parent 5 weight 52
-//   2: parent 6 weight 24
-//   3: parent 5 weight 84
-//   4: parent 6 weight 98
-//   5: parent 7 weight 82
-//   6: parent 7 weight 84
-//
-// Diagram:
-//
-//          7
-//        / | \
-//       /  /  6
-//      /  /   |\
-//     /  5    | \
-//    /  / \   |  \
-//   0  1   3  2   4
-//
-func RandomBinaryTree(nLeaves int) (parentList []FromHalf) {
-	// allocate space for whole tree except root
-	parentList = make([]FromHalf, nLeaves+nLeaves-3)
-	randWt := func() float64 {
-		return float64(10 + rand.Intn(90))
-	}
-	// initial tree has three leaves and the internal root
-	root := len(parentList)
-	parentList[0] = FromHalf{root, randWt()}
-	parentList[1] = FromHalf{root, randWt()}
-	parentList[2] = FromHalf{root, randWt()}
-	// now add remaining nodes.  on each iteration add one each internal
-	// node and parent node.  pick random edge from parent list,
-	// embed a new internal node in this edge, also connect a new leaf.
-	// new edges are from new leaf to new internal node and from
-	// new internal node to parent.
-	for newLeaf := 3; newLeaf < nLeaves; newLeaf++ {
-		i := nLeaves + newLeaf - 3     // new internal node
-		l1 := rand.Intn(newLeaf*2 - 3) // (range is number of existing edges)
-		if l1 >= newLeaf {
-			l1 += nLeaves - newLeaf // skip to range of internal nodes
-		}
-		l2 := parentList[l1].From
-		parentList[l1].From = i
-		parentList[i] = FromHalf{l2, randWt()}      // new edge
-		parentList[newLeaf] = FromHalf{i, randWt()} // new edge
-	}
 	return
 }
 
@@ -326,11 +260,15 @@ func RandomBinaryTree(nLeaves int) (parentList []FromHalf) {
 //
 // Argument n is the size of the DistanceMatrix to reutrn.
 func RandomAdditiveMatrix(n int) DistanceMatrix {
-	pl := RandomBinaryTree(n)
+	pl := graph.RandomUTree(n)
 	da := make([]struct { // distance annotation of parent list
 		leng int     // path length
+		wt   float64 // edge weight to parent
 		dist float64 // distance to root
 	}, len(pl))
+	for i := range da {
+		da[i].wt = 10 + float64(rand.Intn(90))
+	}
 	var f func(int) (int, float64)
 	f = func(n int) (int, float64) {
 		switch {
@@ -339,9 +277,9 @@ func RandomAdditiveMatrix(n int) DistanceMatrix {
 		case da[n].leng > 0:
 			return da[n].leng, da[n].dist
 		}
-		leng, dist := f(pl[n].From)
+		leng, dist := f(pl[n])
 		leng++
-		dist += pl[n].Weight
+		dist += da[n].wt
 		da[n].leng = leng
 		da[n].dist = dist
 		return leng, dist
@@ -358,14 +296,14 @@ func RandomAdditiveMatrix(n int) DistanceMatrix {
 		// accumulate l1 distance to same tree height as l2
 		len2 := da[l2].leng
 		for da[l1].leng > len2 {
-			d += pl[l1].Weight
-			l1 = pl[l1].From
+			d += da[l1].wt
+			l1 = pl[l1]
 		}
 		// accumulate d1, d2 until l1, l2 are the same node
 		for l1 != l2 {
-			d += pl[l1].Weight + pl[l2].Weight
-			l1 = pl[l1].From
-			l2 = pl[l2].From
+			d += da[l1].wt + da[l2].wt
+			l1 = pl[l1]
+			l2 = pl[l2]
 		}
 		return
 	}
@@ -382,30 +320,31 @@ func RandomAdditiveMatrix(n int) DistanceMatrix {
 	return d
 }
 
-// []UPGMA is the return type from DistanceMatrix.UPGMA
-type UPGMA struct {
+// []Ultrametric is a return type from DistanceMatrix.Ultrametric.
+type Ultrametric struct {
 	Parent  int     // index of parent in parent list
 	Weight  float64 // edge weight from parent (the evolutionary distance)
 	Age     float64 // age (height above leaves)
 	NLeaves int     // number of leaves at or below this node
 }
 
+// DAVG, DMIN constants for argument to Ultrametric.
 const (
-	DAVG = iota
-	DMIN
+	DAVG = iota // UPGMA (average) custer distance metric
+	DMIN        // single linkage (minimum) cluster distance metric
 )
 
-// UPGMA constructs a rooted ultrametric tree from DistanceMatrix dm.
+// Ultrametric constructs a rooted ultrametric tree from DistanceMatrix dm.
 //
 // The tree result is returned as a parent list, A list of nodes where each
 // points to its parent.  Leaves of the tree are represented by elements
 // 0:len(dm).  The root is the last element in the list.  Having no logical
 // parent, the root will have parent = -1 and Weight = NaN.
 // It will also have NLeaves = len(dm).
-func (dm DistanceMatrix) UPGMA(cdf int) []UPGMA {
-	ft := make([]UPGMA, len(dm)) // the from-tree
-	for i := range ft {
-		ft[i] = UPGMA{-1, math.NaN(), 0, 1} // initial isolated nodes
+func (dm DistanceMatrix) Ultrametric(cdf int) []Ultrametric {
+	pl := make([]Ultrametric, len(dm)) // the parent-list
+	for i := range pl {
+		pl[i] = Ultrametric{-1, math.NaN(), 0, 1} // initial isolated nodes
 	}
 
 	// cx converts a distance matrix index to a cluster index (a node number)
@@ -441,29 +380,28 @@ func (dm DistanceMatrix) UPGMA(cdf int) []UPGMA {
 
 	for {
 		_, d1, d2 := closest()
-		//fmt.Println("d1, d2:", d1, d2, "dist:", min)
 
 		di1 := dm[d1] // rows in distance mastrix
 		di2 := dm[d2]
 		c1 := cx[d1] // cluster (node) numbers
 		c2 := cx[d2]
-		m1 := ft[c1].NLeaves // number of leaves in each cluster
-		m2 := ft[c2].NLeaves
+		m1 := pl[c1].NLeaves // number of leaves in each cluster
+		m2 := pl[c2].NLeaves
 		m3 := m1 + m2 // total number of leaves for new cluster
 
 		// create node here, initial values come from d1, d2
-		root := len(ft)
+		root := len(pl)
 		age := di2[d1] / 2
-		ft = append(ft, UPGMA{
+		pl = append(pl, Ultrametric{
 			Parent:  -1,
 			Weight:  math.NaN(),
 			Age:     age,
 			NLeaves: m3,
 		})
-		ft[c1].Parent = root
-		ft[c2].Parent = root
-		ft[c1].Weight = age - ft[c1].Age
-		ft[c2].Weight = age - ft[c2].Age
+		pl[c1].Parent = root
+		pl[c2].Parent = root
+		pl[c1].Weight = age - pl[c1].Age
+		pl[c2].Weight = age - pl[c2].Age
 		cx[d1] = root
 
 		if len(dm) == 2 {
@@ -492,7 +430,7 @@ func (dm DistanceMatrix) UPGMA(cdf int) []UPGMA {
 				}
 			}
 		default:
-			panic("UPGMA invalid distance function")
+			panic("Ultrametric: invalid distance function")
 		}
 		// d1 has been replaced, delete d2
 		copy(dm[d2:], dm[d2+1:])
@@ -505,7 +443,7 @@ func (dm DistanceMatrix) UPGMA(cdf int) []UPGMA {
 		copy(cx[d2:], cx[d2+1:])
 		cx = cx[:len(dm)]
 	}
-	return ft
+	return pl
 }
 
 // NeighborJoin constructs an unrooted tree from a distance matrix using the

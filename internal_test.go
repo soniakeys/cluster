@@ -1,3 +1,5 @@
+// Public domain.
+
 package cluster
 
 import "testing"
