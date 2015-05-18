@@ -40,7 +40,7 @@ func TestKMPP(t *testing.T) {
 		}
 		p = 1 - p
 	}
-	cCent, _, cLen := cluster.KMPP(data, k)
+	cCent, _, cLen, _ := cluster.KMPP(data, k)
 	c1 := cCent[0]
 	c2 := cCent[1]
 
