@@ -355,6 +355,8 @@ const (
 // Ultrametric constructs a rooted ultrametric binary tree from
 // DistanceMatrix dm.
 //
+// The function is destructive on dm.
+//
 // The tree result is returned as a parent list, A list of nodes where each
 // points to its parent.  Leaves of the tree are represented by elements
 // 0:len(dm).  Age only increases in the list.  The root is the last element
@@ -366,29 +368,20 @@ func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 		pl[i] = Ultrametric{-1, math.NaN(), 0, 1} // initial isolated nodes
 	}
 
-	// cx converts a distance matrix index to a cluster index (a node number)
+	// clusters is the list of clusters available for merging.  it starts
+	// with all leaf nodes and is reduced in length as clusters are merged.
+	// values represent distance matrix indexes
+	clusters := make([]int, len(dm))
+	for i := range dm {
+		clusters[i] = i
+	}
+	// cx converts a distance matrix index to a node number
 	cx := make([]int, len(dm))
 	for i := range dm {
 		cx[i] = i
 	}
 
-	// closest clusters (min value in d)
-	// return smaller index (j) first
-	closest := func() (min float64, jMin, iMin int) {
-		min = math.Inf(1)
-		iMin = -1
-		jMin = -1
-		for i := 1; i < len(dm); i++ {
-			for j := 0; j < i; j++ {
-				if d := dm[i][j]; d < min {
-					min = d
-					iMin = i
-					jMin = j
-				}
-			}
-		}
-		return
-	}
+	// extra workspace for DMIN
 	var cl [][]int
 	if cdf == DMIN {
 		cl = make([][]int, len(dm)*2-1)
@@ -398,18 +391,17 @@ func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 	}
 
 	for {
-		_, d1, d2 := closest()
-
-		di1 := dm[d1] // rows in distance mastrix
-		di2 := dm[d2]
+		d1, d2, cl2 := dm.closest(clusters)
 		c1 := cx[d1] // cluster (node) numbers
 		c2 := cx[d2]
+		di1 := dm[d1] // rows in distance matrix
+		di2 := dm[d2]
 		m1 := pl[c1].NLeaves // number of leaves in each cluster
 		m2 := pl[c2].NLeaves
 		m3 := m1 + m2 // total number of leaves for new cluster
 
 		// create node here, initial values come from d1, d2
-		root := len(pl)
+		parent := len(pl)
 		age := di2[d1] / 2
 		pl = append(pl, Ultrametric{
 			Parent:  -1,
@@ -417,23 +409,24 @@ func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 			Age:     age,
 			NLeaves: m3,
 		})
-		pl[c1].Parent = root
-		pl[c2].Parent = root
+		pl[c1].Parent = parent
+		pl[c2].Parent = parent
 		pl[c1].Weight = age - pl[c1].Age
 		pl[c2].Weight = age - pl[c2].Age
-		cx[d1] = root
 
-		if len(dm) == 2 {
+		if len(clusters) == 2 {
 			break
 		}
 
-		// replace d1 with mean distance
+		cx[d1] = parent
+		// replace d1 with new computed distance
 		switch cdf {
 		case DAVG:
 			mag1 := float64(m1)
 			mag2 := float64(m2)
 			invMag := 1 / float64(m3)
-			for j, dij := range di1 {
+			for _, j := range clusters {
+				dij := di1[j]
 				if j != d1 {
 					d := (dij*mag1 + di2[j]*mag2) * invMag
 					di1[j] = d
@@ -441,7 +434,8 @@ func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 				}
 			}
 		case DMIN:
-			for j, dj1 := range di1 {
+			for _, j := range clusters {
+				dj1 := di1[j]
 				if dj2 := di2[j]; dj2 < dj1 {
 					di1[j] = dj2
 				} else {
@@ -452,17 +446,34 @@ func (dm DistanceMatrix) Ultrametric(cdf int) UList {
 			panic("Ultrametric: invalid distance function")
 		}
 		// d1 has been replaced, delete d2
-		copy(dm[d2:], dm[d2+1:])
-		dm = dm[:len(dm)-1]
-		for i, di := range dm {
-			copy(di[d2:], di[d2+1:])
-			dm[i] = di[:len(di)-1]
-		}
-		// delete d2 from cluster index
-		copy(cx[d2:], cx[d2+1:])
-		cx = cx[:len(dm)]
+		last := len(clusters) - 1
+		clusters[cl2] = clusters[last]
+		clusters = clusters[:last]
 	}
 	return pl
+}
+
+// closest clusters (min value in d) among only those clusters (d indexes)
+// listed in argument `clusters`
+// return smaller index (iMin) first
+// also return index into cluster list of jMin so it can be deleted later.
+func (dm DistanceMatrix) closest(clusters []int) (iMin, jMin, cj int) {
+	min := math.Inf(1)
+	iMin = -1
+	jMin = -1
+	for _, i := range clusters {
+		for c, j := range clusters {
+			if i < j {
+				if d := dm[i][j]; d < min {
+					min = d
+					iMin = i
+					jMin = j
+					cj = c
+				}
+			}
+		}
+	}
+	return
 }
 
 // Cut partitions leaf nodes of an ultrametric tree into k clusters.
