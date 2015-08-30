@@ -197,7 +197,7 @@ func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []
 	// interpretation of the presented recursive algorithm.
 	// good things to try:  1: construct result as a parent list rather than
 	// a child tree.  2: drop the recursion.  3. make tree always binary.
-	t = make(graph.LabeledAdjacencyList, len(d)) // allocate leaves
+	t = make(graph.LabeledAdjacencyList, len(d), len(d)+len(d)-2)
 	var ap func(int)
 	ap = func(n int) {
 		if n == 1 {
