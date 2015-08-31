@@ -3,6 +3,7 @@
 package cluster
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -16,6 +17,32 @@ import (
 //
 // See DistanceMatrix.Valid for typical restrictions.
 type DistanceMatrix [][]float64
+
+// String returns a string representation of a DistanceMatrix.
+//
+// The function is simplistic, useful mostly for debugging.  For more attractive
+// output or more output options, consider a more general matix library such
+// as github.com/gonum/matrix/mat64 or github.com/skelterjohn/go.matrix.
+func (d DistanceMatrix) String() string {
+	if len(d) == 0 {
+		return ""
+	}
+	var b bytes.Buffer
+	fmt.Fprint(&b, d[0])
+	for _, di := range d[1:] {
+		fmt.Fprintf(&b, "\n%v", di)
+	}
+	return b.String()
+}
+
+// Clone allocates and copies a DistanceMatrix
+func (d DistanceMatrix) Clone() DistanceMatrix {
+	dc := make(DistanceMatrix, len(d))
+	for i, di := range d {
+		dc[i] = append([]float64{}, di...)
+	}
+	return dc
+}
 
 // NewEuclideanDist constructs an n×n distance matrix where n is len(exp)
 // based on Euclidean distance between points.
@@ -33,6 +60,74 @@ func NewEuclideanDist(exp []Point) DistanceMatrix {
 	return dist
 }
 
+// Square tests if a DistanceMatrix is square.
+func (d DistanceMatrix) Square() bool {
+	for _, di := range d {
+		if len(di) != len(d) {
+			return false
+		}
+	}
+	return true
+}
+
+// NonNegative tests that a DistanceMatrix has no negative elements.
+//
+// The test is NaN weak -- a NaN element does not count as negative and so
+// will not cause the function to return false.
+func (d DistanceMatrix) NonNegative() bool {
+	for _, di := range d {
+		for _, dij := range di {
+			if dij < 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Symmetric tests if off-diagonal elements of a DistanceMatrix are symmetric.
+func (d DistanceMatrix) Symmetric() bool {
+	for i, di := range d {
+		for j, dij := range di[:i] {
+			if !(dij == d[j][i]) { // reversed test catches NaNs too.
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// ZeroDiagonal tests that all diagonal elements are zero.
+func (d DistanceMatrix) ZeroDiagonal() bool {
+	for i, di := range d {
+		if !(di[i] == 0) {
+			return false
+		}
+	}
+	return true
+}
+
+// TriangleInequality tests that there are no violations of the triangle
+// inequality for distance matrices.
+//
+// That is, it tests that d[i][j] + d[k][j] < d[i][k] for all i, j, k.
+//
+// The test is NaN weak -- the presense of a NaN does not cause the function
+// to return false.
+func (d DistanceMatrix) TriangleInequality() (ok bool, i, j, k int) {
+	for i, di := range d {
+		for k, dk := range d[:i] {
+			dik := di[k]
+			for j, dij := range di {
+				if dij+dk[j] < dik {
+					return false, i, j, k
+				}
+			}
+		}
+	}
+	return true, 0, 0, 0
+}
+
 // Valid validates a DistanceMarix as Euclidean.
 //
 // Conditions are:
@@ -46,32 +141,21 @@ func NewEuclideanDist(exp []Point) DistanceMatrix {
 // Valid returns nil if all conditions are met, otherwise an error citing
 // a condition not met.
 func (d DistanceMatrix) Validate() error {
-	for i, di := range d {
-		if len(di) != len(d) {
-			return errors.New("not square")
-		}
-		for j, dij := range di {
-			if dij < 0 {
-				return fmt.Errorf("negative element: %g", dij)
-			}
-			if !(dij == d[j][i]) { // reversed test catches NaNs too.
-				return errors.New("not symmetric")
-			}
-		}
-		if !(di[i] == 0) {
-			return errors.New("non-zero diagonal")
-		}
+	if !d.Square() {
+		return errors.New("not square")
 	}
-	for i, di := range d {
-		for k, dk := range d[:i] {
-			dik := di[k]
-			for j, dij := range di {
-				if dij+dk[j] < dik {
-					return fmt.Errorf("triangle inequality not satisfied: "+
-						"d[%d][%d] + d[%d][%d] < d[%d][%d]", i, j, j, k, i, k)
-				}
-			}
-		}
+	if !d.NonNegative() {
+		return errors.New("negative element")
+	}
+	if !d.Symmetric() {
+		return errors.New("not symmetric")
+	}
+	if !d.ZeroDiagonal() {
+		return errors.New("non-zero diagonal")
+	}
+	if ok, i, j, k := d.TriangleInequality(); !ok {
+		return fmt.Errorf("triangle inequality not satisfied: "+
+			"d[%d][%d] + d[%d][%d] < d[%d][%d]", i, j, j, k, i, k)
 	}
 	return nil
 }
@@ -362,7 +446,16 @@ const (
 // 0:len(dm).  Age only increases in the list.  The root is the last element
 // in the list.  Having no logical parent, the root will have parent = -1 and
 // Weight = NaN.  It will also have NLeaves = len(dm).
+//
+// See also UltrametricD.
 func (dm DistanceMatrix) Ultrametric(cdf int) UList {
+	return dm.Clone().UltrametricD(cdf)
+}
+
+// UltrametricD is the same as Ultrametric but is destructive on the receiver.
+//
+// It saves a little memory if you have no further use for the distance matrix.
+func (dm DistanceMatrix) UltrametricD(cdf int) UList {
 	pl := make([]Ultrametric, len(dm)) // the parent-list
 	for i := range pl {
 		pl[i] = Ultrametric{-1, math.NaN(), 0, 1} // initial isolated nodes
@@ -511,7 +604,16 @@ func (u UList) Cut(k int) (clusters [][]int) {
 // The tree is returned as an undirected graph and a weight list.  Edges of
 // the graph are labeled as indexes into the weight list.  Leaves of the
 // the tree will be graph node 0:len(dm).
+//
+// See also NeighborJoinD.
 func (dm DistanceMatrix) NeighborJoin() (tree graph.LabeledAdjacencyList, wt []float64) {
+	return dm.Clone().NeighborJoinD()
+}
+
+// NeighborJoinD is the same as NeighborJoin but is destructive on the receiver.
+//
+// It saves a little memory if you have no further use for the distance matrix.
+func (dm DistanceMatrix) NeighborJoinD() (tree graph.LabeledAdjacencyList, wt []float64) {
 	// first copy dm so original is not destroyed
 	dc := make(DistanceMatrix, len(dm))
 	for i, di := range dm {

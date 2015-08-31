@@ -4,21 +4,176 @@ package cluster_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/soniakeys/cluster"
 )
 
+func ExampleDistanceMatrix_String() {
+	fmt.Println(cluster.DistanceMatrix{
+		{0, 3},
+		{3, 0},
+	})
+	fmt.Println()
+	fmt.Println(cluster.DistanceMatrix{
+		{.5, 1. / 3},
+		{math.Inf(1), math.NaN()},
+	})
+	// Output:
+	// [0 3]
+	// [3 0]
+	//
+	// [0.5 0.3333333333333333]
+	// [+Inf NaN]
+}
+
+func ExampleDistanceMatrix_Square() {
+	d1 := cluster.DistanceMatrix{
+		{0, 3},
+		{3, 0},
+	}
+	d2 := cluster.DistanceMatrix{}
+	d3 := cluster.DistanceMatrix{
+		{0},
+		{3, 0},
+	}
+	fmt.Println(d1.Square())
+	fmt.Println(d2.Square())
+	fmt.Println(d3.Square())
+	// Output:
+	// true
+	// true
+	// false
+}
+
+func ExampleDistanceMatrix_NonNegative() {
+	d1 := cluster.DistanceMatrix{
+		{0, -1}, // false
+		{-1, 0},
+	}
+	d2 := cluster.DistanceMatrix{
+		{0}, // true
+		{1, 2},
+	}
+	d3 := cluster.DistanceMatrix{} // true (no negatives present)
+	d4 := cluster.DistanceMatrix{
+		{0, math.NaN()}, // true
+		{3, 0},
+	}
+	fmt.Println(d1.NonNegative())
+	fmt.Println(d2.NonNegative())
+	fmt.Println(d3.NonNegative())
+	fmt.Println(d4.NonNegative())
+	// Outpupt:
+	// false
+	// true
+	// true
+	// true
+}
+
+func ExampleDistanceMatrix_ZeroDiagonal() {
+	d1 := cluster.DistanceMatrix{
+		{0, 3}, // true
+		{3, 0},
+	}
+	d2 := cluster.DistanceMatrix{
+		{0}, // true
+		{7, 0},
+	}
+	d3 := cluster.DistanceMatrix{} // true
+	d4 := cluster.DistanceMatrix{
+		{0, 3},
+		{3, 1e-300}, // false
+	}
+	fmt.Println(d1.ZeroDiagonal())
+	fmt.Println(d2.ZeroDiagonal())
+	fmt.Println(d3.ZeroDiagonal())
+	fmt.Println(d4.ZeroDiagonal())
+	// Output:
+	// true
+	// true
+	// true
+	// false
+}
+
+func ExampleDistanceMatrix_Symmetric() {
+	d1 := cluster.DistanceMatrix{
+		{0, 3}, // true
+		{3, 0},
+	}
+	d2 := cluster.DistanceMatrix{
+		{0, 3}, // false
+		{7, 0},
+	}
+	d3 := cluster.DistanceMatrix{
+		{0, math.NaN()}, // false (NaNs do not compare equal)
+		{math.NaN(), 0},
+	}
+	d4 := cluster.DistanceMatrix{
+		{0, 3}, // true (diagonal is not checked)
+		{3, math.NaN()},
+	}
+	fmt.Println(d1.Symmetric())
+	fmt.Println(d2.Symmetric())
+	fmt.Println(d3.Symmetric())
+	fmt.Println(d4.Symmetric())
+	// Output:
+	// true
+	// false
+	// false
+	// true
+}
+
+func ExampleDistanceMatrix_TriangleInequality() {
+	d1 := cluster.DistanceMatrix{
+		{0, 13, 21, 22}, // true
+		{13, 0, 12, 13},
+		{21, 12, 0, 13},
+		{22, 13, 13, 0},
+	}
+	d2 := cluster.DistanceMatrix{
+		{0, 13, 21, math.NaN()}, // true
+		{13, 0, 12, 13},
+		{21, 12, 0, 13},
+		{22, 13, 13, 0},
+	}
+	d3 := cluster.DistanceMatrix{}
+	d4 := cluster.DistanceMatrix{
+		{0, 4, 6, 1}, // false
+		{4, 0, 3, 2},
+		{6, 3, 0, 5},
+		{1, 2, 5, 0},
+	}
+	fmt.Println(d1.TriangleInequality())
+	fmt.Println(d2.TriangleInequality())
+	fmt.Println(d3.TriangleInequality())
+	fmt.Println(d4.TriangleInequality())
+	// Output:
+	// true 0 0 0
+	// true 0 0 0
+	// true 0 0 0
+	// false 1 3 0
+}
+
 func ExampleDistanceMatrix_Validate() {
-	d := cluster.DistanceMatrix{
+	d1 := cluster.DistanceMatrix{
 		{0, 13, 21, 22},
 		{13, 0, 12, 13},
 		{21, 12, 0, 13},
 		{22, 13, 13, 0},
 	}
-	fmt.Println(d.Validate())
+	d2 := cluster.DistanceMatrix{
+		{0, 4, 6, 1}, // false
+		{4, 0, 3, 2},
+		{6, 3, 0, 5},
+		{1, 2, 5, 0},
+	}
+	fmt.Println(d1.Validate())
+	fmt.Println(d2.Validate())
 	// Output:
 	// <nil>
+	// triangle inequality not satisfied: d[1][3] + d[3][0] < d[1][0]
 }
 
 func ExampleDistanceMatrix_Additive() {
