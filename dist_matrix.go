@@ -420,15 +420,11 @@ func RandomAdditiveMatrix(n int) DistanceMatrix {
 	return d
 }
 
-// []Ultrametric is a return type from DistanceMatrix.Ultrametric.
+// Ultrametric labels nodes in the tree returned by DistanceMatrix.Ultrametric.
 type Ultrametric struct {
-	Parent  int     // parent node number, index of parent in parent list
-	Weight  float64 // edge weight from parent (the evolutionary distance)
-	Age     float64 // age (height above leaves)
-	NLeaves int     // number of leaves at or below this node
+	Weight float64 // edge weight from parent (the evolutionary distance)
+	Age    float64 // age (height above leaves)
 }
-
-type UList []Ultrametric
 
 // DAVG, DMIN constants for argument to Ultrametric.
 const (
@@ -448,17 +444,23 @@ const (
 // Weight = NaN.  It will also have NLeaves = len(dm).
 //
 // See also UltrametricD.
-func (dm DistanceMatrix) Ultrametric(cdf int) UList {
+func (dm DistanceMatrix) Ultrametric(cdf int) (graph.LabeledFromTree, []Ultrametric) {
 	return dm.Clone().UltrametricD(cdf)
 }
 
 // UltrametricD is the same as Ultrametric but is destructive on the receiver.
 //
 // It saves a little memory if you have no further use for the distance matrix.
-func (dm DistanceMatrix) UltrametricD(cdf int) UList {
-	pl := make([]Ultrametric, len(dm)) // the parent-list
+func (dm DistanceMatrix) UltrametricD(cdf int) (graph.LabeledFromTree, []Ultrametric) {
+	pl := make([]graph.LabeledPathEnd, len(dm)) // the parent-list
+	ul := make([]Ultrametric, len(dm))          // labels for the parent-list
 	for i := range pl {
-		pl[i] = Ultrametric{-1, math.NaN(), 0, 1} // initial isolated nodes
+		// "initial isolated nodes"
+		pl[i] = graph.LabeledPathEnd{
+			From: graph.FromHalf{From: -1, Label: i},
+			Len:  1,
+		}
+		ul[i] = Ultrametric{Weight: math.NaN(), Age: 0}
 	}
 
 	// clusters is the list of clusters available for merging.  it starts
@@ -489,23 +491,25 @@ func (dm DistanceMatrix) UltrametricD(cdf int) UList {
 		c2 := cx[d2]
 		di1 := dm[d1] // rows in distance matrix
 		di2 := dm[d2]
-		m1 := pl[c1].NLeaves // number of leaves in each cluster
-		m2 := pl[c2].NLeaves
+		m1 := pl[c1].Len // number of leaves in each cluster
+		m2 := pl[c2].Len
 		m3 := m1 + m2 // total number of leaves for new cluster
 
 		// create node here, initial values come from d1, d2
 		parent := len(pl)
 		age := di2[d1] / 2
-		pl = append(pl, Ultrametric{
-			Parent:  -1,
-			Weight:  math.NaN(),
-			Age:     age,
-			NLeaves: m3,
+		pl = append(pl, graph.LabeledPathEnd{
+			From: graph.FromHalf{From: -1, Label: parent},
+			Len:  m3,
 		})
-		pl[c1].Parent = parent
-		pl[c2].Parent = parent
-		pl[c1].Weight = age - pl[c1].Age
-		pl[c2].Weight = age - pl[c2].Age
+		ul = append(ul, Ultrametric{
+			Weight: math.NaN(),
+			Age:    age,
+		})
+		pl[c1].From.From = parent
+		pl[c2].From.From = parent
+		ul[c1].Weight = age - ul[c1].Age
+		ul[c2].Weight = age - ul[c2].Age
 
 		if len(clusters) == 2 {
 			break
@@ -543,7 +547,7 @@ func (dm DistanceMatrix) UltrametricD(cdf int) UList {
 		clusters[cl2] = clusters[last]
 		clusters = clusters[:last]
 	}
-	return pl
+	return graph.LabeledFromTree{Paths: pl}, ul
 }
 
 // closest clusters (min value in d) among only those clusters (d indexes)
@@ -576,6 +580,7 @@ func (dm DistanceMatrix) closest(clusters []int) (iMin, jMin, cj int) {
 // a subtree of u.  Because of the increasing age property of a UList,
 // the parents of the roots of the k subtrees will be the last k-1
 // elements of the list, that is the parents will be >= len(u)-(k-1).
+/*
 func (u UList) Cut(k int) (clusters [][]int) {
 	nLeaves := (len(u) + 1) / 2
 	if k > nLeaves {
@@ -597,6 +602,7 @@ func (u UList) Cut(k int) (clusters [][]int) {
 	}
 	return
 }
+*/
 
 // NeighborJoin constructs an unrooted tree from a distance matrix using the
 // neighbor joining algorithm.

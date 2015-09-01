@@ -241,21 +241,21 @@ func ExampleDistanceMatrix_Ultrametric() {
 		{17, 20, 0, 10},
 		{11, 13, 10, 0},
 	}
-	pl := d.Ultrametric(cluster.DAVG)
-	fmt.Println("node  parent  weight     age  leaves")
-	for i, u := range pl {
-		fmt.Printf(">%3d     %3d  %6.3f  %6.3f     %3d\n",
-			i, u.Parent, u.Weight, u.Age, u.NLeaves)
+	pl, ul := d.Ultrametric(cluster.DAVG)
+	fmt.Println("node  leaves  parent  u-index  weight     age")
+	for n, p := range pl.Paths {
+		fmt.Printf(">%3d     %3d     %3d      %3d  %6.3f  %6.3f\n",
+			n, p.Len, p.From.From, p.From.Label, ul[n].Weight, ul[n].Age)
 	}
 	// Output:
-	// node  parent  weight     age  leaves
-	// >  0       5   7.000   0.000       1
-	// >  1       6   8.833   0.000       1
-	// >  2       4   5.000   0.000       1
-	// >  3       4   5.000   0.000       1
-	// >  4       5   2.000   5.000       2
-	// >  5       6   1.833   7.000       3
-	// >  6      -1     NaN   8.833       4
+	// node  leaves  parent  u-index  weight     age
+	// >  0       1       5        0   7.000   0.000
+	// >  1       1       6        1   8.833   0.000
+	// >  2       1       4        2   5.000   0.000
+	// >  3       1       4        3   5.000   0.000
+	// >  4       2       5        4   2.000   5.000
+	// >  5       3       6        5   1.833   7.000
+	// >  6       4      -1        6     NaN   8.833
 }
 
 func ExampleDistanceMatrix_NeighborJoin() {
@@ -286,6 +286,7 @@ func ExampleDistanceMatrix_NeighborJoin() {
 	// 5   4    2.000
 }
 
+/*
 func ExampleUList_Cut() {
 	exp := []cluster.Point{
 		{10, 8, 10},
@@ -322,3 +323,4 @@ func ExampleUList_Cut() {
 	// 0: [10 8 10]
 	// 5: [10.5 9 12]
 }
+*/
