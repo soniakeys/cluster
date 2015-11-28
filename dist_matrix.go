@@ -444,20 +444,20 @@ const (
 // Weight = NaN.  It will also have NLeaves = len(dm).
 //
 // See also UltrametricD.
-func (dm DistanceMatrix) Ultrametric(cdf int) (graph.LabeledFromTree, []Ultrametric) {
+func (dm DistanceMatrix) Ultrametric(cdf int) (graph.FromList, []Ultrametric) {
 	return dm.Clone().UltrametricD(cdf)
 }
 
 // UltrametricD is the same as Ultrametric but is destructive on the receiver.
 //
 // It saves a little memory if you have no further use for the distance matrix.
-func (dm DistanceMatrix) UltrametricD(cdf int) (graph.LabeledFromTree, []Ultrametric) {
-	pl := make([]graph.LabeledPathEnd, len(dm)) // the parent-list
-	ul := make([]Ultrametric, len(dm))          // labels for the parent-list
+func (dm DistanceMatrix) UltrametricD(cdf int) (graph.FromList, []Ultrametric) {
+	pl := make([]graph.PathEnd, len(dm)) // the parent-list
+	ul := make([]Ultrametric, len(dm))   // labels for the parent-list
 	for i := range pl {
 		// "initial isolated nodes"
-		pl[i] = graph.LabeledPathEnd{
-			From: graph.FromHalf{From: -1, Label: i},
+		pl[i] = graph.PathEnd{
+			From: -1,
 			Len:  1,
 		}
 		ul[i] = Ultrametric{Weight: math.NaN(), Age: 0}
@@ -498,16 +498,16 @@ func (dm DistanceMatrix) UltrametricD(cdf int) (graph.LabeledFromTree, []Ultrame
 		// create node here, initial values come from d1, d2
 		parent := len(pl)
 		age := di2[d1] / 2
-		pl = append(pl, graph.LabeledPathEnd{
-			From: graph.FromHalf{From: -1, Label: parent},
+		pl = append(pl, graph.PathEnd{
+			From: -1,
 			Len:  m3,
 		})
 		ul = append(ul, Ultrametric{
 			Weight: math.NaN(),
 			Age:    age,
 		})
-		pl[c1].From.From = parent
-		pl[c2].From.From = parent
+		pl[c1].From = parent
+		pl[c2].From = parent
 		ul[c1].Weight = age - ul[c1].Age
 		ul[c2].Weight = age - ul[c2].Age
 
@@ -547,7 +547,7 @@ func (dm DistanceMatrix) UltrametricD(cdf int) (graph.LabeledFromTree, []Ultrame
 		clusters[cl2] = clusters[last]
 		clusters = clusters[:last]
 	}
-	return graph.LabeledFromTree{Paths: pl}, ul
+	return graph.FromList{Paths: pl}, ul
 }
 
 // closest clusters (min value in d) among only those clusters (d indexes)
