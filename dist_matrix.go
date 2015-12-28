@@ -360,7 +360,7 @@ func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []
 //
 // Argument n is the size of the DistanceMatrix to reutrn.
 func RandomAdditiveMatrix(n int) DistanceMatrix {
-	pl := graph.RandomUTree(n)
+	pl := randomUTree(n)
 	da := make([]struct { // distance annotation of parent list
 		leng int     // path length
 		wt   float64 // edge weight to parent
