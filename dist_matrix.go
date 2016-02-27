@@ -277,11 +277,11 @@ func (d DistanceMatrix) limbWeightSubMatrix(j int) (wt float64, i, k int) {
 // Internal nodes follow.
 //
 // Time complexity is O(n^2) in the number of leaves.
-func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []float64) {
-	// interpretation of the presented recursive algorithm.
-	// good things to try:  1: construct result as a parent list rather than
+func (d DistanceMatrix) AdditiveTree() (u graph.UndirectedLabeled, edgeWts []float64) {
+	// interpretation of the presented recursive algorithm.  ideas of
+	// things to try:  1: construct result as a parent list rather than
 	// a child tree.  2: drop the recursion.  3. make tree always binary.
-	t = make(graph.LabeledAdjacencyList, len(d), len(d)+len(d)-2)
+	t := make(graph.LabeledAdjacencyList, len(d), len(d)+len(d)-2)
 	var ap func(int)
 	ap = func(n int) {
 		if n == 1 {
@@ -298,14 +298,14 @@ func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []
 		// way out.
 		// create connection node v if needed, return v if found, -1 if not.
 		var vis big.Int
-		var f func(n int) int
-		f = func(n int) int {
-			if n == i {
-				return i
+		var f func(n graph.NI) graph.NI
+		f = func(n graph.NI) graph.NI {
+			if int(n) == i {
+				return n
 			}
-			vis.SetBit(&vis, n, 1)
+			vis.SetBit(&vis, int(n), 1)
 			for tx, to := range t[n] {
-				if vis.Bit(to.To) == 1 {
+				if vis.Bit(int(to.To)) == 1 {
 					continue
 				}
 				p := f(to.To)
@@ -321,11 +321,11 @@ func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []
 					// reduced by x.  The edge(to.To, v) gets a new edge label
 					// with weight x.
 
-					v := len(t)            // new node
+					v := graph.NI(len(t))  // new node
 					t[n][tx].To = v        // redirect half
 					edgeWts[to.Label] -= x // reduce wt
 
-					y := len(edgeWts) // new label for edge(to.To, v)
+					y := graph.LI(len(edgeWts)) // new label for edge(to.To, v)
 					edgeWts = append(edgeWts, x)
 					// now find reciprocal half from to.To back to n
 					for fx, from := range t[to.To] {
@@ -346,14 +346,14 @@ func (d DistanceMatrix) AdditiveTree() (t graph.LabeledAdjacencyList, edgeWts []
 			return -1
 		}
 		vis = big.Int{}
-		v := f(k)
-		y := len(edgeWts)
+		v := f(graph.NI(k))
+		y := graph.LI(len(edgeWts))
 		edgeWts = append(edgeWts, nLen)
 		t[n] = []graph.Half{{v, y}}
-		t[v] = append(t[v], graph.Half{n, y})
+		t[v] = append(t[v], graph.Half{graph.NI(n), y})
 	}
 	ap(len(d) - 1)
-	return
+	return graph.UndirectedLabeled{t}, edgeWts
 }
 
 // RAMatrix constructs a random additive distance matrix.
@@ -471,9 +471,9 @@ func (dm DistanceMatrix) UltrametricD(cdf int) (graph.FromList, []Ultrametric) {
 		clusters[i] = i
 	}
 	// cx converts a distance matrix index to a node number
-	cx := make([]int, len(dm))
+	cx := make([]graph.NI, len(dm))
 	for i := range dm {
-		cx[i] = i
+		cx[i] = graph.NI(i)
 	}
 
 	// extra workspace for DMIN
@@ -496,7 +496,7 @@ func (dm DistanceMatrix) UltrametricD(cdf int) (graph.FromList, []Ultrametric) {
 		m3 := m1 + m2 // total number of leaves for new cluster
 
 		// create node here, initial values come from d1, d2
-		parent := len(pl)
+		parent := graph.NI(len(pl))
 		age := di2[d1] / 2
 		pl = append(pl, graph.PathEnd{
 			From: -1,
@@ -612,24 +612,18 @@ func (u UList) Cut(k int) (clusters [][]int) {
 // the tree will be graph node 0:len(dm).
 //
 // See also NeighborJoinD.
-func (dm DistanceMatrix) NeighborJoin() (tree graph.LabeledAdjacencyList, wt []float64) {
+func (dm DistanceMatrix) NeighborJoin() (u graph.UndirectedLabeled, wt []float64) {
 	return dm.Clone().NeighborJoinD()
 }
 
 // NeighborJoinD is the same as NeighborJoin but is destructive on the receiver.
 //
 // It saves a little memory if you have no further use for the distance matrix.
-func (dm DistanceMatrix) NeighborJoinD() (tree graph.LabeledAdjacencyList, wt []float64) {
-	// first copy dm so original is not destroyed
-	dc := make(DistanceMatrix, len(dm))
-	for i, di := range dm {
-		dc[i] = append([]float64{}, di...)
-	}
-	dm = dc
-	td := make([]float64, len(dm)) // total-distance vector
-	nx := make([]int, len(dm))     // node number corresponding to dist matrix index
+func (dm DistanceMatrix) NeighborJoinD() (u graph.UndirectedLabeled, wt []float64) {
+	td := make([]float64, len(dm))  // total-distance vector
+	nx := make([]graph.NI, len(dm)) // node number corresponding to dist matrix index
 	for i := range dm {
-		nx[i] = i
+		nx[i] = graph.NI(i)
 	}
 
 	// closest clusters (min value in dm)
@@ -652,8 +646,9 @@ func (dm DistanceMatrix) NeighborJoinD() (tree graph.LabeledAdjacencyList, wt []
 	}
 
 	// wt is edge weight from parent (limb length)
-	var nj func(int)
-	nj = func(m int) { // m is next internal node number
+	var tree graph.LabeledAdjacencyList
+	var nj func(graph.NI)
+	nj = func(m graph.NI) { // m is next internal node number
 		if len(dm) == 2 {
 			wt = make([]float64, 1, m-1)
 			wt[0] = dm[0][1]
@@ -708,8 +703,8 @@ func (dm DistanceMatrix) NeighborJoinD() (tree graph.LabeledAdjacencyList, wt []
 		nj(m + 1)
 
 		// join limbs to tree
-		wx1 := len(wt)
-		wx2 := len(wt) + 1
+		wx1 := graph.LI(len(wt))
+		wx2 := wx1 + 1
 		wt = append(wt, ll1, ll2)
 		tree[m] = append(tree[m],
 			graph.Half{n1, wx1},
@@ -718,6 +713,6 @@ func (dm DistanceMatrix) NeighborJoinD() (tree graph.LabeledAdjacencyList, wt []
 		tree[n2] = append(tree[n2], graph.Half{m, wx2})
 		return
 	}
-	nj(len(dm))
-	return
+	nj(graph.NI(len(dm)))
+	return graph.UndirectedLabeled{tree}, wt
 }

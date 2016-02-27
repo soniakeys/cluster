@@ -204,7 +204,7 @@ func ExampleDistanceMatrix_AdditiveTree() {
 		{22, 13, 13, 0},
 	}
 	t, wts := d.AdditiveTree()
-	for n, to := range t {
+	for n, to := range t.LabeledAdjacencyList {
 		for _, to := range to {
 			fmt.Printf("%d: to %d label %d weight %g\n",
 				n, to.To, to.Label, wts[to.Label])
@@ -267,7 +267,7 @@ func ExampleDistanceMatrix_NeighborJoin() {
 	}
 	tree, wt := d.NeighborJoin()
 	fmt.Println("n1  n2  weight")
-	for n, to := range tree {
+	for n, to := range tree.LabeledAdjacencyList {
 		for _, h := range to {
 			fmt.Printf("%d  %2d   %6.3f\n", n, h.To, wt[h.Label])
 		}
