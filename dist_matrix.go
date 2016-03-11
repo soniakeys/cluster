@@ -277,7 +277,7 @@ func (d DistanceMatrix) limbWeightSubMatrix(j int) (wt float64, i, k int) {
 // Internal nodes follow.
 //
 // Time complexity is O(n^2) in the number of leaves.
-func (d DistanceMatrix) AdditiveTree() (u graph.UndirectedLabeled, edgeWts []float64) {
+func (d DistanceMatrix) AdditiveTree() (u graph.LabeledUndirected, edgeWts []float64) {
 	// interpretation of the presented recursive algorithm.  ideas of
 	// things to try:  1: construct result as a parent list rather than
 	// a child tree.  2: drop the recursion.  3. make tree always binary.
@@ -353,7 +353,7 @@ func (d DistanceMatrix) AdditiveTree() (u graph.UndirectedLabeled, edgeWts []flo
 		t[v] = append(t[v], graph.Half{graph.NI(n), y})
 	}
 	ap(len(d) - 1)
-	return graph.UndirectedLabeled{t}, edgeWts
+	return graph.LabeledUndirected{t}, edgeWts
 }
 
 // RAMatrix constructs a random additive distance matrix.
@@ -612,14 +612,14 @@ func (u UList) Cut(k int) (clusters [][]int) {
 // the tree will be graph node 0:len(dm).
 //
 // See also NeighborJoinD.
-func (dm DistanceMatrix) NeighborJoin() (u graph.UndirectedLabeled, wt []float64) {
+func (dm DistanceMatrix) NeighborJoin() (u graph.LabeledUndirected, wt []float64) {
 	return dm.Clone().NeighborJoinD()
 }
 
 // NeighborJoinD is the same as NeighborJoin but is destructive on the receiver.
 //
 // It saves a little memory if you have no further use for the distance matrix.
-func (dm DistanceMatrix) NeighborJoinD() (u graph.UndirectedLabeled, wt []float64) {
+func (dm DistanceMatrix) NeighborJoinD() (u graph.LabeledUndirected, wt []float64) {
 	td := make([]float64, len(dm))  // total-distance vector
 	nx := make([]graph.NI, len(dm)) // node number corresponding to dist matrix index
 	for i := range dm {
@@ -714,5 +714,5 @@ func (dm DistanceMatrix) NeighborJoinD() (u graph.UndirectedLabeled, wt []float6
 		return
 	}
 	nj(graph.NI(len(dm)))
-	return graph.UndirectedLabeled{tree}, wt
+	return graph.LabeledUndirected{tree}, wt
 }
