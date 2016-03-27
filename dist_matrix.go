@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"math/rand"
 
 	"github.com/soniakeys/graph"
@@ -297,15 +296,15 @@ func (d DistanceMatrix) AdditiveTree() (u graph.LabeledUndirected, edgeWts []flo
 		// method: df search to find i from k, find connection point on the
 		// way out.
 		// create connection node v if needed, return v if found, -1 if not.
-		var vis big.Int
+		var vis graph.Bits
 		var f func(n graph.NI) graph.NI
 		f = func(n graph.NI) graph.NI {
 			if int(n) == i {
 				return n
 			}
-			vis.SetBit(&vis, int(n), 1)
+			vis.SetBit(n, 1)
 			for tx, to := range t[n] {
-				if vis.Bit(int(to.To)) == 1 {
+				if vis.Bit(to.To) == 1 {
 					continue
 				}
 				p := f(to.To)
@@ -345,7 +344,7 @@ func (d DistanceMatrix) AdditiveTree() (u graph.LabeledUndirected, edgeWts []flo
 			}
 			return -1
 		}
-		vis = big.Int{}
+		vis.Clear()
 		v := f(graph.NI(k))
 		y := graph.LI(len(edgeWts))
 		edgeWts = append(edgeWts, nLen)
