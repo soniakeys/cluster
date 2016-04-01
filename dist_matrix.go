@@ -111,7 +111,7 @@ func (d DistanceMatrix) ZeroDiagonal() bool {
 //
 // That is, it tests that d[i][j] + d[k][j] < d[i][k] for all i, j, k.
 //
-// The test is NaN weak -- the presense of a NaN does not cause the function
+// The test is NaN weak -- the presence of a NaN does not cause the function
 // to return false.
 func (d DistanceMatrix) TriangleInequality() (ok bool, i, j, k int) {
 	for i, di := range d {
