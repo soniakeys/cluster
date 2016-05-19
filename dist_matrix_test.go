@@ -1,6 +1,6 @@
 // Public domain.
 
-package cluster_test
+package cluster
 
 import (
 	"fmt"

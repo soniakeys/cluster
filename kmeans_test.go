@@ -1,7 +1,7 @@
 // Author Sonia Keys 2012
 // Public domain.
 
-package cluster_test
+package cluster
 
 import (
 	"math"
