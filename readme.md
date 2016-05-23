@@ -2,6 +2,8 @@
 
 A few clustering methods including K-Means++ and UPGMA.
 
+[![GoDoc](https://godoc.org/github.com/soniakeys/cluster?status.svg)](https://godoc.org/github.com/soniakeys/cluster) [![Build Status](https://travis-ci.org/soniakeys/cluster.svg?branch=master)](https://travis-ci.org/soniakeys/cluster)
+
 ### K-Means
 
 K-Means operates on an N-dimensional point type.  Three initializers are
