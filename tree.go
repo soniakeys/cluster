@@ -1,3 +1,6 @@
+// Author Sonia Keys 2015
+// Public domain.
+
 package cluster
 
 import "math/rand"
